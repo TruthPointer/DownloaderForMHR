@@ -1,0 +1,202 @@
+﻿<Window x:Name="myWindows" x:Class="DownloaderForMHR.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:DownloaderForMHR"
+        mc:Ignorable="d"
+        Title="明慧广播批量下载器" Height="600" Width="1198" MinWidth="1198" MinHeight="600" ResizeMode="CanResize" Closed="Window_Closed" Loaded="Window_Loaded" WindowStartupLocation="CenterScreen" SizeChanged="Window_SizeChanged">
+    <Window.Resources>
+        <ToolTip x:Key="InforTip">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <!-- 自动行高 -->
+                    <RowDefinition Height="Auto"></RowDefinition>
+                    <!-- 按比例行高 -->
+                    <RowDefinition Height="*"></RowDefinition>
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"></ColumnDefinition>
+                    <!-- 按比例列宽 -->
+                    <ColumnDefinition Width="*"></ColumnDefinition>
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="文件名："/>
+                <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding Path=fileName}"/>
+                <TextBlock Grid.Row="1" Grid.Column="0" Text="下载链接："/>
+                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding Path=downloadUrl}"/>
+            </Grid>
+        </ToolTip>
+        <Style x:Key="InforTipStyle" TargetType="{x:Type ListViewItem}">
+            <Setter Property="ToolTip" Value="{Binding Source={StaticResource InforTip}}" />
+        </Style>
+    </Window.Resources>
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="32*" MaxHeight="32"/>
+            <RowDefinition Height="32*" MaxHeight="32"/>
+            <RowDefinition Height="357*"/>
+            <RowDefinition Height="32*" MaxHeight="32"/>
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="50" />
+            <ColumnDefinition Width="60" />
+            <ColumnDefinition Width="220" />
+            <ColumnDefinition Width="220" />
+            <ColumnDefinition Width="160"/>
+            <ColumnDefinition Width="160"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+        <Grid Grid.Column="0" x:Name="col1"/>
+        <Grid Grid.Column="1" x:Name="col2"/>
+        <Grid Grid.Column="2" x:Name="col3"/>
+        <Grid Grid.Column="3" x:Name="col4"/>
+        <Grid Grid.Column="4" x:Name="col5"/>
+        <Grid Grid.Column="5" x:Name="col6"/>
+        <Grid Grid.Column="6" x:Name="col7"/>
+        <DockPanel Grid.ColumnSpan="7">
+            <StackPanel Orientation="Horizontal">
+                <Label Content="网站" Margin="0,0,0,0" VerticalAlignment="Center"/>
+                <ComboBox x:Name="cmbWebSite" Width="220" Height="22" SelectionChanged="cmbWebSite_SelectionChanged"/>
+            </StackPanel>
+            <DockPanel x:Name="dockPanelCmb1" Visibility="Visible">
+                <StackPanel Orientation="Horizontal" Margin="12,0,0,0">
+                    <Label Content="板块" Margin="0,0,0,0" VerticalAlignment="Center"/>
+                    <ComboBox x:Name="cmbSiteSection" Width="130" Height="22" SelectionChanged="cmbSiteSection_SelectionChanged" Panel.ZIndex="1"/>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="12,0,0,0">
+                    <Label Content="栏目" Margin="0,0,0,0" VerticalAlignment="Center"/>
+                    <ComboBox x:Name="cmbSiteCategory" Width="130" Height="22" SelectionChanged="cmbSiteCategory_SelectionChanged" Panel.ZIndex="2"/>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="12,0,0,0">
+                    <Label x:Name="lbPageValue" Content="页序" Margin="0,0,0,0" VerticalAlignment="Center"/>
+                    <ComboBox x:Name="cmbPageValue" Width="70" Height="22" SelectionChanged="cmbPageValue_SelectionChanged" Panel.ZIndex="3"/>
+                </StackPanel>
+            </DockPanel>
+
+            <DockPanel Margin="12,0,6,0" LastChildFill="True">
+                <Label x:Name="lbHtmlUrl" Content="网页链接" Margin="0,0,0,0" VerticalAlignment="Center"/>
+                <Border x:Name="bdWebUrl" Panel.ZIndex="4">
+                    <TextBox x:Name="tbTaskTarget" Height="22" Width="{Binding ElementName=bdWebUrl, Path=ActualWidth}" HorizontalAlignment="Right" MaxLines="1" TextWrapping="WrapWithOverflow"/>
+                </Border>
+            </DockPanel>
+        </DockPanel>
+        <ListView x:Name="LvDownloadItem" HorizontalAlignment="Stretch" Margin="6,8,6,3" Grid.Row="2" BorderThickness="1,1,1,1" BorderBrush="#C85599" ItemContainerStyle="{StaticResource InforTipStyle}" SelectionChanged="LvDownloadItem_SelectionChanged" Grid.ColumnSpan="7" Panel.ZIndex="28">
+
+            <ListView.View>
+                <GridView x:Name="gvDownloadItem">
+                    <GridViewColumn  Header="序号" DisplayMemberBinding="{Binding Path=DisplayId}" Width="{Binding ElementName=col1, Path=ActualWidth}"/>
+                    <GridViewColumn  x:Name="gvc" Width="{Binding ElementName=col2, Path=ActualWidth}">
+                        <GridViewColumn.Header>
+                            <CheckBox x:Name="chkbSelectAll" Click="chkbSelectAll_Click" IsEnabled="{Binding Path=isSelectionEnabled}">全选</CheckBox>
+                        </GridViewColumn.Header>
+                        <GridViewColumn.CellTemplate>
+                            <DataTemplate>
+                                <CheckBox x:Name="chkbSelectItem" IsEnabled="{Binding Path=isSelectionEnabled}" IsChecked="{Binding Path=isSelected, Mode=TwoWay}" Tag="{Binding Path=id}" Click="chkbSelectItem_Click"/>
+                            </DataTemplate>
+                        </GridViewColumn.CellTemplate>
+                    </GridViewColumn>
+                    <GridViewColumn  Header="文件名"  Width="{Binding ElementName=col3, Path=ActualWidth}">
+                        <GridViewColumn.CellTemplate>
+                            <DataTemplate>
+                                <StackPanel Orientation="Horizontal">
+                                    <Button x:Name="btnLvItemPause" Tag="{Binding Path=id}" BorderThickness="0" Click="btnLvItemPause_Click" Background="#00000000" Visibility="Collapsed">
+                                        <WrapPanel>
+                                            <Image Width="16" Height="16" Margin="4,0,4,0" Source="/pause_download.png"/>
+                                        </WrapPanel>
+                                    </Button>
+                                    <TextBlock Text="{Binding Path=fileName}" TextAlignment="Right" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </GridViewColumn.CellTemplate>
+                    </GridViewColumn>
+                    <GridViewColumn  Header="下载链接" Width="{Binding ElementName=col4, Path=ActualWidth}">
+                        <GridViewColumn.CellTemplate>
+                            <DataTemplate>
+                                <TextBlock x:Name="tbDownloadUrl" Text="{Binding Path=downloadUrl, Mode=TwoWay}" MouseDown="tbDownloadUrl_MouseDown"/>
+                            </DataTemplate>
+                        </GridViewColumn.CellTemplate>
+                    </GridViewColumn>
+                    <GridViewColumn x:Name="gvcDownloadSpeed"  Header="速度" Width="{Binding ElementName=col5, Path=ActualWidth}">
+                        <GridViewColumn.CellTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding Path=downloadSpeed}" TextAlignment="Center" MinWidth="{Binding Path=ActualWidth,ElementName=gvcDownloadSpeed}"/>
+                            </DataTemplate>
+                        </GridViewColumn.CellTemplate>
+                    </GridViewColumn>
+                    <GridViewColumn x:Name="gvcDownloadFileSize"  Header="已下载 / 文件大小" Width="{Binding ElementName=col6, Path=ActualWidth}">
+                        <GridViewColumn.CellTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding Path=fileSize}" TextAlignment="Center" MinWidth="{Binding Path=ActualWidth,ElementName=gvcDownloadFileSize}"/>
+                            </DataTemplate>
+                        </GridViewColumn.CellTemplate>
+                    </GridViewColumn>
+                    <GridViewColumn x:Name="gvcDownloadProgress"  Header="下载進度" Width="{Binding ElementName=col7, Path=Width}">
+                        <GridViewColumn.CellTemplate>
+                            <DataTemplate>
+                                <DockPanel LastChildFill="True" Width="{Binding ElementName=col7, Path=Width}" >
+                                    <TextBlock Width="35" DockPanel.Dock="Right" Text="{Binding downloadProgress, StringFormat={}{0}%}" TextAlignment="Right" VerticalAlignment="Center" Margin="2,0"/>
+                                    <ProgressBar Height="12" VerticalAlignment="Center" Minimum="0" Maximum="100" Value="{Binding Path=downloadProgress}" Margin="2,0,0,0"/>
+                                </DockPanel>
+                            </DataTemplate>
+                        </GridViewColumn.CellTemplate>
+                    </GridViewColumn>
+
+                </GridView>
+            </ListView.View>
+        </ListView>
+        <DockPanel Grid.Row="1" Grid.ColumnSpan="7">
+            <StackPanel Orientation="Horizontal" Margin="6,0,0,0" VerticalAlignment="Center" HorizontalAlignment="Left">
+                <Button x:Name="btnFetchDownloadLinks" HorizontalAlignment="Left" Margin="0,0,0,0" VerticalAlignment="Center" Width="112" Height="24" Click="btnFetchDownloadLinks_Click" Panel.ZIndex="5">
+                    <WrapPanel >
+                        <Image Width="16" Height="16" Margin="0,0,8,0" Source="/images/fetch_web_link.png"/>
+                        <TextBlock Text="获取下载链接" VerticalAlignment="Center" />
+                    </WrapPanel>
+                </Button>
+                <Button x:Name="btnStartDownload" HorizontalAlignment="Left" Margin="10,0,0,0" VerticalAlignment="Center" Width="112" Height="24" Click="btnStartDownload_Click" Panel.ZIndex="6">
+                    <WrapPanel Margin="0,0,8,0" >
+                        <Image Source="/images/start_download.png" Width="16" Height="16" Margin="0,0,8,0"/>
+                        <TextBlock Text="开始下载" VerticalAlignment="Center" />
+                    </WrapPanel>
+                </Button>
+                <Button x:Name="btnStopDownload" HorizontalAlignment="Left" Margin="10,0,0,0" VerticalAlignment="Center" Width="112" Height="24" Click="btnStopDownload_Click" Panel.ZIndex="7">
+                    <WrapPanel Margin="0,0,8,0" >
+                        <Image Source="/images/stop_download.png" Width="16" Height="16" Margin="0,0,8,0"/>
+                        <TextBlock Text="停止下载" VerticalAlignment="Center" />
+                    </WrapPanel>
+                </Button>
+                <Button x:Name="btnMergeTsFiles" HorizontalAlignment="Left" Margin="10,0,0,0" VerticalAlignment="Center" Width="112" Height="24" Panel.ZIndex="9" Click="btnMergeTsFiles_Click" Visibility="Collapsed">
+                    <WrapPanel Margin="0,0,8,0" >
+                        <Image Source="/images/merge_file.png" Width="16" Height="16" Margin="0,0,8,0"/>
+                        <TextBlock Text="合并视频" VerticalAlignment="Center" />
+                    </WrapPanel>
+                </Button>
+                <Button x:Name="btnTest" HorizontalAlignment="Left" Margin="10,0,0,0" VerticalAlignment="Center" Width="112" Height="24" Panel.ZIndex="9" Click="btnTest_Click">
+                    <WrapPanel Margin="0,0,8,0" >
+                        <Image Source="/images/test.png" Width="16" Height="16" Margin="0,0,8,0"/>
+                        <TextBlock Text="测试" VerticalAlignment="Center" />
+                    </WrapPanel>
+                </Button>
+            </StackPanel>
+
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,6,0">
+                <Border x:Name="bdProxySelection" BorderThickness="2,1,2,1" CornerRadius="2" Margin="0,0,22,0" >
+                    <StackPanel Orientation="Horizontal">
+                        <CheckBox x:Name="ckbUseProxy" Content="使用代理" HorizontalAlignment="Left" Margin="2,0,0,0" VerticalAlignment="Center" IsChecked="True" Panel.ZIndex="10" Click="ckbUseProxy_Click" />
+                        <Label Content="端口" Margin="3,0,0,0" VerticalAlignment="Center" Height="26"/>
+                        <TextBox x:Name="tbProxyPort" InputMethod.IsInputMethodEnabled="False"  Margin="0,0,3,0" HorizontalAlignment="Left" VerticalAlignment="Center" Width="60" Cursor="" Text="8580" TextAlignment="Right"  TextChanged="tbProxyPort_TextChanged" PreviewKeyDown="tbProxyPort_PreviewKeyDown" Panel.ZIndex="11"/>
+                    </StackPanel>
+                </Border>
+                <Label Content="同时下载文件数" HorizontalAlignment="Left" Margin="0,0,0,0" VerticalAlignment="Center" Height="26"/>
+                <ComboBox x:Name="cmbThreadNum" HorizontalAlignment="Left" Margin="3,0,0,0" VerticalAlignment="Center" Width="80" SelectedIndex="0" SelectionChanged="cmbThreadNum_SelectionChanged" Height="22" Panel.ZIndex="12"/>
+            </StackPanel>
+        </DockPanel>
+
+        <StatusBar x:Name="sbStatus" Grid.Row="3" Height="30" VerticalAlignment="Bottom" Grid.ColumnSpan="7" HorizontalContentAlignment="Stretch">
+            <DockPanel LastChildFill="True" Width="{Binding ElementName=sbStatus, Path=ActualWidth}" Margin="0,0,3,0">
+                <Label x:Name="lbTaskInfo" DockPanel.Dock="Left" Content="欢迎使用本程序！" Foreground="#FF0000ff" FontWeight="Normal" MouseDoubleClick="lbTaskInfo_MouseDoubleClick"/>
+                <ProgressBar x:Name="pbTaskInfo" Height="12"  Minimum="0" Maximum="100" Value="{Binding TaskProgress}" Margin="0,0,9,0"/>
+            </DockPanel>
+        </StatusBar>
+
+    </Grid>
+</Window>

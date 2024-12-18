@@ -1,0 +1,29 @@
+﻿<Window x:Class="DownloaderForMHR.VideoAudioQualitySelector"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:DownloaderForMHR"
+        mc:Ignorable="d"
+        Title="请选择" Height="233" Width="220" ResizeMode="NoResize" Closing="Window_Closing">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="135"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="24" />
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="100" />
+            <ColumnDefinition Width="100" />
+        </Grid.ColumnDefinitions>
+        <GroupBox Header="视频分辨率" Grid.Row="0" Grid.Column="0">
+            <ListBox x:Name="LbVideoQuality"></ListBox>
+        </GroupBox>
+        <GroupBox Header="音频音质" Grid.Row="0" Grid.Column="1">
+            <ListBox x:Name="LbAudioQuality" ></ListBox>
+        </GroupBox>
+        <TextBlock x:Name="TbTip" Grid.Row="1" Grid.ColumnSpan="2" Margin="6,0,6,0" />
+        <Button x:Name="BtnOK" Content="确认"  Grid.Row="2" Grid.ColumnSpan="2" Margin="12,3,12,0" Click="BtnOK_Click"/>
+
+    </Grid>
+</Window>

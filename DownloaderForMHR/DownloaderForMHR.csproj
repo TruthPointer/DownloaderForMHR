@@ -1,0 +1,53 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows7.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <ApplicationIcon>downoader_mhr.ico</ApplicationIcon>
+    <AssemblyVersion>1.5.2024.1016</AssemblyVersion>
+    <FileVersion>1.5.2024.1016</FileVersion>
+    <Product>$(AssemblyName)</Product>
+    <Title></Title>
+    <PackageId>$(AssemblyName)</PackageId>
+    <AssemblyName>明慧广播批量下载器</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Remove="fetch_web_link.png" />
+    <None Remove="images\fetch_web_link.png" />
+    <None Remove="images\merge_file.png" />
+    <None Remove="images\open_file.png" />
+    <None Remove="images\pause_download.png" />
+    <None Remove="images\start_download.png" />
+    <None Remove="images\stop_download.png" />
+    <None Remove="images\test.png" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="downoader_mhr.ico" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="HtmlAgilityPack" Version="1.11.67" />
+    <PackageReference Include="HtmlAgilityPack.CssSelectors.NetCore" Version="1.2.1" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Downloader\Downloader.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="images\fetch_web_link.png" />
+    <Resource Include="images\merge_file.png" />
+    <Resource Include="images\open_file.png" />
+    <Resource Include="images\pause_download.png" />
+    <Resource Include="images\start_download.png" />
+    <Resource Include="images\stop_download.png" />
+    <Resource Include="images\test.png" />
+  </ItemGroup>
+
+</Project>
