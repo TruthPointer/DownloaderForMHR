@@ -2,7 +2,6 @@
 using HtmlAgilityPack;
 using HtmlAgilityPack.CssSelectors.NetCore;
 using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -42,15 +41,18 @@ namespace DownloaderForMHR
             public List<WebSite> WebSites { get; set; }
             public int ThreadNum { get; set; }
             public bool UseProxy { get; set; }
-            public int ProxyPort { get; set; }
+            public string ProxyHost = PROXY_HOST_DEFAULT;
+            public int ProxyPort = PROXY_PORT_DEFAULT;
 
-            public WebSiteParseList(int CurrentWebSiteIndex, List<WebSite> WebSites, int ThreadNum, bool UseProxy, int ProxyPort)
+            public List<string>? UserAgents = null;
+            public WebSiteParseList(int CurrentWebSiteIndex, List<WebSite> WebSites, int ThreadNum, bool UseProxy, int ProxyPort, List<string>? userAgents)
             {
                 this.CurrentWebSiteIndex = CurrentWebSiteIndex;
                 this.WebSites = WebSites;
                 this.ThreadNum = ThreadNum;
                 this.UseProxy = UseProxy;
                 this.ProxyPort = ProxyPort;
+                UserAgents = userAgents;
             }
         }
 
@@ -443,6 +445,21 @@ namespace DownloaderForMHR
             public event PropertyChangedEventHandler? PropertyChanged;
         }*/
 
+        class ProxyState
+        {
+            public bool UseProxy;
+            public string ProxyHost;
+            public int ProxyPort;
+            public bool IsProxyChanged;
+
+            public ProxyState(bool useProxy = true, string proxyHost = PROXY_HOST_DEFAULT, int proxyPort = PROXY_PORT_DEFAULT, bool isProxyChanged = false)
+            {
+                UseProxy = useProxy;
+                ProxyHost = proxyHost;
+                ProxyPort = proxyPort;
+                IsProxyChanged = isProxyChanged;
+            }
+        }
         #endregion
 
         /////////////////////////////////////////////////////
@@ -450,7 +467,7 @@ namespace DownloaderForMHR
         #region
         private const string WEB_SITE_NAME_MHR = "明慧广播电台";
         private const string WEB_SITE_NAME_MHR_IN_SOH = "明慧广播节目下载（希望之声提供）";
-        private readonly List<string> WEB_SITE_NAMES_SUPPORTED = new List<string>() { WEB_SITE_NAME_MHR, WEB_SITE_NAME_MHR_IN_SOH};
+        private readonly List<string> WEB_SITE_NAMES_SUPPORTED = new List<string>() { WEB_SITE_NAME_MHR, WEB_SITE_NAME_MHR_IN_SOH };
 
         private readonly List<string> EMPTY_STRING_LIST = new List<string>();
 
@@ -460,12 +477,9 @@ namespace DownloaderForMHR
         ObservableCollection<DownloadItem> downloadItemList = new ObservableCollection<DownloadItem>();
         List<DownloadItem> downloadList = new List<DownloadItem>();
         ObservableTaskProgress<double> taskProgress = new ObservableTaskProgress<double>();
-        private const string USER_AGENT_DEFAULT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:91.0) Gecko/20100101 Firefox/91.0";
-        private const string PROXY_HOST = "127.0.0.1";
+        private const string USER_AGENT_DEFAULT = @"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/97.0.4692.99 Safari/537.36";
+        private const string PROXY_HOST_DEFAULT = "127.0.0.1";
         private const int PROXY_PORT_DEFAULT = 8580;
-        private int proxyPort = 0;
-        private bool useProxy = true;
-        private const int MAX_TRY_TIMES = 3;
 
         WebSiteParseList? webSiteParseList;
         WebSite? currentWebSite;
@@ -476,9 +490,12 @@ namespace DownloaderForMHR
         //private int oldCmbPageValueIndex = -1;
         private bool oldUseProxy = false;
         private int oldProxyPort = 0;
+        private ProxyState proxyState = new ProxyState();
 
         int totalDownloadNum = 0;
         int countCompleted = 0;
+
+        private string userAgent = USER_AGENT_DEFAULT;
         bool test = false; //!!!
 
         //20220605
@@ -578,13 +595,14 @@ namespace DownloaderForMHR
                 //2.初始化线程数量
                 InitThreadNumCombox(webSiteParseList.ThreadNum);
                 ckbUseProxy.IsChecked = webSiteParseList.UseProxy;
-                tbProxyPort.Text = webSiteParseList.ProxyPort.ToString();//20220623
-                useProxy = webSiteParseList.UseProxy;
-                oldUseProxy = useProxy;
-                ValidateProxy();
-                oldProxyPort = proxyPort;
-                //tbProxyPort.Text = webSiteParseList.ProxyPort.ToString();
-                //bdProxySelection.BorderBrush = (bool)ckbUseProxy.IsChecked ? Brushes.Green : Brushes.Red;
+                InitProxy(webSiteParseList);
+                tbProxy.Text = $"{webSiteParseList.ProxyHost}:{webSiteParseList.ProxyPort}";
+                //
+                if (webSiteParseList.UserAgents != null && webSiteParseList.UserAgents.Count > 0)
+                {
+                    userAgent = webSiteParseList.UserAgents[new Random().Next(webSiteParseList.UserAgents.Count)];
+                }
+                Log($"App UserAgent = {userAgent}");
                 //3.【重要】最后设定SelectedIndex，因为会引起 cmbWebSiteNames_SelectionChanged 一些列变动，包括SaveMainJson()
                 cmbWebSite.SelectedIndex = webSiteParseList.CurrentWebSiteIndex;
             }
@@ -652,6 +670,31 @@ namespace DownloaderForMHR
             {
                 Log($"InitDownloadPath： 创建 {DOWNLOAD_PATH} 失败！详情：{ex.Message}");
             }
+        }
+
+        private void InitProxy(WebSiteParseList webSite)
+        {
+            //1.
+            proxyState.UseProxy = webSite.UseProxy;
+            proxyState.IsProxyChanged = false;
+            proxyState.ProxyHost = webSite.ProxyHost;
+            proxyState.ProxyPort = webSite.ProxyPort;
+            //2.
+            string errInfo = "";
+            if (!IsProxyHostValid(webSite.ProxyHost))
+            {
+                errInfo += "主机";
+            }
+
+            if (!IsProxyPortValid(webSite.ProxyPort))
+            {
+                if (string.IsNullOrEmpty(errInfo))
+                    errInfo += "端口";
+                else
+                    errInfo += "和端口";
+            }
+            if (string.IsNullOrEmpty(errInfo)) return;
+            MessageBoxError("代理的" + errInfo + "设置错误！请修改。");
         }
 
         private async Task<int> ParsePageValueUpperLimitForMHR(string url)
@@ -737,9 +780,13 @@ namespace DownloaderForMHR
         #region
         private void Window_Closed(object sender, EventArgs e)
         {
+            CheckProxyStateOnCloseApp();
             SaveMainJson();
         }
 
+        /// <summary>
+        /// 代理的保存，为上一次正确运行的代理状态参数
+        /// </summary>
         private void SaveMainJson()
         {
             //注意2个index要加 1
@@ -750,7 +797,6 @@ namespace DownloaderForMHR
                 AdjustIndex(webSiteParseList, false);
                 webSiteParseList.ThreadNum = threadNums[cmbThreadNum.SelectedIndex];
                 webSiteParseList.UseProxy = (bool)(ckbUseProxy.IsChecked ?? false);
-                webSiteParseList.ProxyPort = int.Parse(tbProxyPort.Text);
                 string json = JsonConvert.SerializeObject(webSiteParseList, Formatting.Indented);
                 File.WriteAllText(SETTINGS_JSON_FILE, json);
                 //20220609 保存完成后修改回来,当然也可以用序列和反序列化一个新的实体webSiteParseList，而不改当前的
@@ -925,8 +971,8 @@ namespace DownloaderForMHR
                 webSiteDownloadHistory.CurrentSelection.PageValue == null)
                 return 0;
             int index;
-             //20240228 居然json回来时是 int 而非 string
-            if(currentWebSite.WebSiteName == WEB_SITE_NAME_MHR_IN_SOH)
+            //20240228 居然json回来时是 int 而非 string
+            if (currentWebSite.WebSiteName == WEB_SITE_NAME_MHR_IN_SOH)
             {
                 int.TryParse(webSiteDownloadHistory.CurrentSelection.PageValue, out int value);
                 index = cmbPageValue.Items.IndexOf(value);
@@ -1050,17 +1096,14 @@ namespace DownloaderForMHR
             try
             {
                 //1.
-                if ((webSiteParseList == null || webSiteParseList.UseProxy) && proxyPort == 0)
-                {
-                    MessageBoxErrorWithoutResultOnUI("端口设置错误！");
-                    return "";
-                }
                 //2.
                 HttpWebRequest hwr = (HttpWebRequest)HttpWebRequest.Create(url);
+                hwr.Headers.Add("User-Agent", userAgent);//20240912
                 //设置下载请求超时为200秒
                 hwr.Timeout = 15000;
-                Log("Proxy: host = " + PROXY_HOST + ", port = " + proxyPort);
-                hwr.Proxy = new WebProxy(PROXY_HOST, proxyPort);
+                Log($"Proxy: useProxy = {proxyState.UseProxy}, host = {proxyState.ProxyHost}, port = {proxyState.ProxyPort}");
+                if (proxyState.UseProxy)
+                    hwr.Proxy = new WebProxy(proxyState.ProxyHost, proxyState.ProxyPort);
                 //得到HttpWebResponse对象
                 HttpWebResponse hwp = (HttpWebResponse)hwr.GetResponse();
                 //根据HttpWebResponse对象的GetResponseStream()方法得到用于下载数据的网络流对象
@@ -1254,8 +1297,8 @@ namespace DownloaderForMHR
 
         /// <summary>
         /// 20240223 根据希望之声提供的明慧广播“天音净乐”2023错误格式做修正;
-        /// 通常为：2023-01-03 【天音净乐】天音净乐第460集【最初的家园】 节目长度：15分3秒 <a href="http://mms.hungfa.net/audio01/2023/1/3/tyjy_460_1503_32k.mp3" target="_blank">http://mms.hungfa.net/audio01/2023/1/3/tyjy_460_1503_32k.mp3</a>
-        /// 错误为：2023-04-04 【天音净乐】Thepageyouarelookingforistemporarilyunavailable.Pleasetryagainlater.<h3>天音净乐第463集【仓颉造字光明大显】</h3> 节目长度：15分10秒 <a href="http://mms.hungfa.net/audio01/2023/4/4/tyjy_463_1510_32k.mp3" target="_blank">http://mms.hungfa.net/audio01/2023/4/4/tyjy_463_1510_32k.mp3</a>
+        /// 通常为：2023-01-03 【天音净乐】天音净乐第460集【最初的家园】 节目长度：15分3秒 <a href="/audio01/2023/1/3/tyjy_460_1503_32k.mp3" target="_blank">/audio01/2023/1/3/tyjy_460_1503_32k.mp3</a>
+        /// 错误为：2023-04-04 【天音净乐】Thepageyouarelookingforistemporarilyunavailable.Pleasetryagainlater.<h3>天音净乐第463集【仓颉造字光明大显】</h3> 节目长度：15分10秒 <a href="/audio01/2023/4/4/tyjy_463_1510_32k.mp3" target="_blank">/audio01/2023/4/4/tyjy_463_1510_32k.mp3</a>
         /// </summary>
         /// <param name="url"></param>
         private async void FetchDownloadUrlsForMHRInSOH(string url)
@@ -1290,7 +1333,7 @@ namespace DownloaderForMHR
         {
             if (string.IsNullOrEmpty(url))
             {
-                MessageBoxError("“网页链接”为空！{action}");
+                MessageBoxError("“网页链接”为空！");
                 return false;
             }
             if (!url.StartsWith("http", false, null))
@@ -1528,29 +1571,89 @@ namespace DownloaderForMHR
 
         private bool ValidateProxy()
         {
-            useProxy = (bool)(ckbUseProxy.IsChecked ?? false);
+            bool useProxy = (bool)(ckbUseProxy.IsChecked ?? false);
+            if (webSiteParseList != null)
+                webSiteParseList.UseProxy = useProxy;
+            proxyState.UseProxy = useProxy;
             if (!useProxy) return true;
 
-            //proxyHost = tbProxyHost.Text.Trim();
-            if (!Regex.IsMatch(PROXY_HOST, @"^([\w-]+\.)+[\w-]+(/[\w-./?%&=]*)?$"))
+            return ValidateTextBoxProxy();
+        }
+
+        private (string host, string port) ParseTbProxy()
+        {
+            string proxy = tbProxy.Text.Trim();
+            var para = proxy.Split(':');
+            if (para.Length != 2)
             {
-                MessageBoxError("代理主机设置错误！");
+                return ("", "");
+            }
+            return (para[0], para[1]);
+        }
+
+        private bool ValidateTextBoxProxy()
+        {
+            if (webSiteParseList == null) return false;
+
+            var (sHost, sPort) = ParseTbProxy();
+            if (!IsProxyHostValid(sHost))
+            {
+                MessageBoxError("代理的主机设置错误！");
                 return false;
             }
-            //tbProxyHost.Text = proxyHost;
-
-            string port = tbProxyPort.Text.Trim();
-            if (!Regex.IsMatch(port, @"^\d+$"))
+            if (!IsProxyPortValid(sPort))
             {
-                MessageBoxError("代理端口设置错误！");
-                tbProxyPort.Text = PROXY_PORT_DEFAULT.ToString();
-                proxyPort = PROXY_PORT_DEFAULT;
+                MessageBoxError("代理的端口设置错误！");
                 return false;
             }
-            tbProxyPort.Text = port;
-            proxyPort = Int32.Parse(port);
 
+            int proxyPort = Int32.Parse(sPort);
+
+            proxyState.IsProxyChanged = webSiteParseList.ProxyHost != sHost || webSiteParseList.ProxyPort != proxyPort;
+            proxyState.ProxyHost = sHost;
+            proxyState.ProxyPort = proxyPort;
+            webSiteParseList.ProxyHost = sHost;
+            webSiteParseList.ProxyPort = proxyPort;
+            if (proxyState.IsProxyChanged)
+            {
+                SaveMainJson();
+            }
+            Log($"ValidateTextBoxProxy: useProxy = {proxyState.UseProxy}, isProxyChanged = {proxyState.IsProxyChanged}, host = {proxyState.ProxyHost}, port = {proxyState.ProxyPort}");
             return true;
+        }
+
+        private void CheckProxyStateOnCloseApp()
+        {
+            if (webSiteParseList == null) return;
+            webSiteParseList.UseProxy = (bool)(ckbUseProxy.IsChecked ?? false);
+
+            var (sHost, sPort) = ParseTbProxy();
+            if (!IsProxyHostValid(sHost) || !IsProxyPortValid(sPort))
+            {
+                MessageBoxError("代理设置错误！不会保存最新的代理设置。");
+                return;
+            }
+            int proxyPort = Int32.Parse(sPort);
+            webSiteParseList.ProxyHost = sHost;
+            webSiteParseList.ProxyPort = proxyPort;
+        }
+
+        private bool IsProxyHostValid(string host)
+        {
+            return !string.IsNullOrEmpty(host) && Regex.IsMatch(host, @"^([\w-]+\.)+[\w-]+(/[\w-./?%&=]*)?$");
+        }
+
+        private bool IsProxyPortValid(string portString)
+        {
+            if (string.IsNullOrEmpty(portString)) return false;
+            if (!Regex.IsMatch(portString, @"\d+")) return false;
+            int port = Int32.Parse(portString);
+            return port >= 1024 && port <= 65535;
+        }
+
+        private bool IsProxyPortValid(int port)
+        {
+            return port >= 1024 && port <= 65535;
         }
 
         private void FetchDownloadLink(List<DownloadItem> list)
@@ -1675,9 +1778,8 @@ namespace DownloaderForMHR
             //2.1 [1]获取完成，不需要从新获取
             if (list == null) return;
             //2.2 [2] 20220622 修改代理
-            Log($"DownloadAll: oldUseProxy={oldUseProxy} -> useProxy={useProxy}, " +
-                $"oldProxyPort={oldProxyPort} -> proxyPort={proxyPort}");
-            if (oldUseProxy != useProxy || oldProxyPort != proxyPort)
+            Log($"DownloadAll: proxy has Changed ={proxyState.IsProxyChanged}");
+            if (proxyState.IsProxyChanged)
             {
                 var configuration = GetDownloadConfiguration();
                 list.ForEach(item => item.downloadService?.ResetDownloadConfiguration(configuration));
@@ -1707,7 +1809,7 @@ namespace DownloaderForMHR
                 CtrolWidgetsOnTask(AppTask.TASK_DOWNLOAD, false, e1.Message);
             }
         }
-        
+
         private void ParallelAction(List<KeyValuePair<int, DownloadItem>> downloadPairs)
         {
             Parallel.For(0, downloadPairs.Count, async index =>
@@ -1720,9 +1822,9 @@ namespace DownloaderForMHR
         {
             string version = Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "1";
             var cookies = new CookieContainer();
-            cookies.Add(new Cookie("download-type", "test") { Domain = "domain.com" });
+            //cookies.Add(new Cookie("download-type", "test") { Domain = "domain.com" });
 
-            Uri? uri = useProxy ? new Uri($"http://{PROXY_HOST}:{proxyPort}") : null;
+            Uri? uri = proxyState.UseProxy ? new Uri($"http://{proxyState.ProxyHost}:{proxyState.ProxyPort}") : null;
             RequestConfiguration requestConfiguration = new RequestConfiguration
             {
                 // config and customize request headers
@@ -1743,10 +1845,6 @@ namespace DownloaderForMHR
                 },
             };
             int chunkCount = 1;
-            /*if(currentWebSite.WebSiteName == WEB_SITE_NAME_GJSJ)
-            {
-                requestConfiguration.Headers.Add("Origin", "https://www.ganjingworld.com");
-            }*/
             return new DownloadConfiguration
             {
                 // usually, hosts support max to 8000 bytes, default values is 8000
@@ -1840,6 +1938,12 @@ namespace DownloaderForMHR
         private async void OnDownloadFileCompleted(object? sender, DownloadAsyncCompletedEventArgs e)
         {
             Log($"OnDownloadFileCompleted: TaskId = {e.TaskId}");
+            if (webSiteParseList == null)
+            {
+                Log($"OnDownloadFileCompleted: TaskId = 意外错误！");
+                return;
+            }
+
             //1.
             DownloadItem item = downloadList.ElementAt(e.TaskId);
 
@@ -2156,7 +2260,7 @@ namespace DownloaderForMHR
                 btnStopDownload.IsEnabled = task == AppTask.TASK_DOWNLOAD ? true : isEnabled;
 
                 ckbUseProxy.IsEnabled = isEnabled;
-                tbProxyPort.IsEnabled = isEnabled;
+                tbProxy.IsEnabled = isEnabled;
                 cmbThreadNum.IsEnabled = isEnabled;
             });
         }
@@ -2173,7 +2277,7 @@ namespace DownloaderForMHR
             btnStopDownload.IsEnabled = isEnabled;
 
             ckbUseProxy.IsEnabled = isEnabled;
-            tbProxyPort.IsEnabled = isEnabled;
+            tbProxy.IsEnabled = isEnabled;
             cmbThreadNum.IsEnabled = isEnabled;
         }
 
@@ -2270,26 +2374,6 @@ namespace DownloaderForMHR
             else
             {
                 e.CancelCommand();
-            }
-        }
-
-        private void tbProxyPort_PreviewKeyDown(object sender, KeyEventArgs e)
-        {
-            strPreviousProxyPort = this.tbProxyPort.Text;
-            bIsPasteOperation = true;
-        }
-
-        private void tbProxyPort_TextChanged(object sender, TextChangedEventArgs e)
-        {
-            if (true == bIsPasteOperation)
-            {
-
-                if (false == this.IsNumber(this.tbProxyPort.Text))
-                {
-                    this.tbProxyPort.Text = strPreviousProxyPort;
-                    e.Handled = true;
-                }
-                bIsPasteOperation = false;
             }
         }
 
@@ -2567,93 +2651,11 @@ namespace DownloaderForMHR
 
 
         /////////////////////////////////////////////////////
-        ///12. 干净世界视频下载 
+        ///12. 测试 
         #region
-        
-        #endregion
-
-        /////////////////////////////////////////////////////
-        ///13. 测试 
-        #region
-        int progressCnt = 0;
-        private async void btnTest_Click(object sender, RoutedEventArgs e)
+        private void btnTest_Click(object sender, RoutedEventArgs e)
         {
-            int method = 6;
-            if (method == 0)
-            {
-                // currentWebSite.ParseSelector.DownloadPackages.Clear();
-                downloadItemList.Clear();
-            }
-            else if (method == 1)
-            {
-                if (downloadItemList != null && downloadItemList.Count > 0)
-                {
-                    downloadItemList[0].downloadProgress = progressCnt;
-                    progressCnt += 10;
-                    if (progressCnt > 100)
-                    {
-                        progressCnt = 0;
-                    }
-                }
-            }
-            else if (method == 2)
-            {
-                abFetchDownloadUrl.Set(false);
-            }
-            else if (method == 3)
-            {
-                await WaitSomeTime(2000);
-            }
-            else if (method == 4)
-            {
-                downloadItemList.Clear();
-                downloadItemList.Add(new DownloadItem(0, "Android测速", "",
-                    "https://android-screenimgs.25pp.com/fs08/2019/06/14/0/110_5ed44c86f7b01d8359a8f34253e584ed.png",
-                    true));
-            }
-            else if (method == 6)
-            {
-
-                MessageBoxQuestion("TEST....");
-            }
         }
-
-        private async Task<bool> WaitSomeTime(int delay)
-        {
-            var dialog = ShowProgressDialog("测试。。。");
-            dialog.WindowStartupLocation = WindowStartupLocation.CenterScreen;
-            dialog.Show();// .ShowDialog();
-            await Task.Delay(delay);
-            dialog.CloseMe();
-            return true;
-        }
-
-        private void AddTestData()
-        {
-            //1.清空下载列表
-            downloadItemList.Clear();
-            //LvDownloadItem.Items.Clear();
-
-            //2.以下仅用于测试
-            List<KeyValuePair<string, string>> urls = new List<KeyValuePair<string, string>>();
-            urls.Add(new KeyValuePair<string, string>("JPG_SEQ01.tar.bz2", "http://samples.mplayerhq.hu/JPEG-seq/tmp.tar.bz2"));
-            urls.Add(new KeyValuePair<string, string>("3GP_01.3gp", "http://samples.mplayerhq.hu/mobileVideo_3gp/11082005.3gp"));
-            urls.Add(new KeyValuePair<string, string>("3GP_02.3gp", "http://samples.mplayerhq.hu/mobileVideo_3gp/15082005.3gp"));
-            urls.Add(new KeyValuePair<string, string>("3GP_03.3g2", "http://samples.mplayerhq.hu/mobileVideo_3gp/MAV_0001.3G2"));
-            urls.Add(new KeyValuePair<string, string>("3GP_04.3gp", "http://samples.mplayerhq.hu/mobileVideo_3gp/ambiance.3gp"));
-            urls.Add(new KeyValuePair<string, string>("3GP_05.3g2", "http://samples.mplayerhq.hu/mobileVideo_3gp/Video_020306_001.3g2"));
-            //urls.Add(new KeyValuePair<string, string>("",""));
-            //urls.Add(new KeyValuePair<string, string>("",""));
-            //urls.Add(new KeyValuePair<string, string>("",""));
-            for (int i = 0; i < urls.Count; i++)
-            {
-                DownloadItem item = new DownloadItem(i, urls.ElementAt(i).Key, "", urls.ElementAt(i).Value, true);
-                downloadItemList.Add(item);
-            }
-            CheckCheckedState();
-        }
-
-
         #endregion
 
 

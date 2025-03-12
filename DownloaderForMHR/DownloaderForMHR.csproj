@@ -7,8 +7,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
     <ApplicationIcon>downoader_mhr.ico</ApplicationIcon>
-    <AssemblyVersion>1.5.2024.1016</AssemblyVersion>
-    <FileVersion>1.5.2024.1016</FileVersion>
+    <AssemblyVersion>1.6.2025.0311</AssemblyVersion>
+    <FileVersion>1.6.2025.0311</FileVersion>
     <Product>$(AssemblyName)</Product>
     <Title></Title>
     <PackageId>$(AssemblyName)</PackageId>

@@ -182,8 +182,7 @@
                 <Border x:Name="bdProxySelection" BorderThickness="2,1,2,1" CornerRadius="2" Margin="0,0,22,0" >
                     <StackPanel Orientation="Horizontal">
                         <CheckBox x:Name="ckbUseProxy" Content="使用代理" HorizontalAlignment="Left" Margin="2,0,0,0" VerticalAlignment="Center" IsChecked="True" Panel.ZIndex="10" Click="ckbUseProxy_Click" />
-                        <Label Content="端口" Margin="3,0,0,0" VerticalAlignment="Center" Height="26"/>
-                        <TextBox x:Name="tbProxyPort" InputMethod.IsInputMethodEnabled="False"  Margin="0,0,3,0" HorizontalAlignment="Left" VerticalAlignment="Center" Width="60" Cursor="" Text="8580" TextAlignment="Right"  TextChanged="tbProxyPort_TextChanged" PreviewKeyDown="tbProxyPort_PreviewKeyDown" Panel.ZIndex="11"/>
+                        <TextBox x:Name="tbProxy" InputMethod.IsInputMethodEnabled="False"  Margin="5,0,3,0" HorizontalAlignment="Left" VerticalAlignment="Center" Width="120" Cursor="" Text="127.0.0.1:8580" TextAlignment="Right" Panel.ZIndex="11" ToolTip="{Binding ElementName=tbProxy, Path=Text}"/>
                     </StackPanel>
                 </Border>
                 <Label Content="同时下载文件数" HorizontalAlignment="Left" Margin="0,0,0,0" VerticalAlignment="Center" Height="26"/>
