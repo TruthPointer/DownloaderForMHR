@@ -5,10 +5,20 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:DownloaderForMHR"
         mc:Ignorable="d"
-        Title="更新中..." Height="100" Width="230" ResizeMode="NoResize" Topmost="True" ShowInTaskbar="False" WindowStartupLocation="CenterScreen" Closing="Window_Closing">
+        Title="更新中..." Topmost="True" ShowInTaskbar="False" WindowStartupLocation="CenterScreen" Closing="Window_Closing" Width="430" VerticalAlignment="Top" MaxHeight="90">
     <Grid>
-        <Label x:Name="lbTaskInfo" Content="正在更新" HorizontalAlignment="Center" Margin="0,10,0,0" VerticalAlignment="Top" Width="210"/>
-        <ProgressBar x:Name="pbTask" HorizontalAlignment="Center" Height="10" Margin="0,45,0,45" VerticalAlignment="Top" Width="203" IsIndeterminate="True"/>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="10"/>
+        </Grid.RowDefinitions>
 
+        <Label x:Name="lbTaskInfo"  Grid.Row="0" HorizontalAlignment="Stretch" Margin="5,0,5,5">
+            <TextBlock TextWrapping="Wrap" Text="正在更新"/>
+        </Label>
+
+        <ProgressBar x:Name="pbTask"  Grid.Row="1"  IsIndeterminate="True" HorizontalAlignment="Stretch" Height="8" Margin="6,0,6,0"/>
+
+       
+       
     </Grid>
 </Window>

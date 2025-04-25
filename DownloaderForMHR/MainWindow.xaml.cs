@@ -1,8 +1,4 @@
-﻿using Downloader;
-using HtmlAgilityPack;
-using HtmlAgilityPack.CssSelectors.NetCore;
-using Newtonsoft.Json;
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
@@ -16,6 +12,10 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using Downloader;
+using HtmlAgilityPack;
+using HtmlAgilityPack.CssSelectors.NetCore;
+using Newtonsoft.Json;
 
 namespace DownloaderForMHR
 {
@@ -468,7 +468,12 @@ namespace DownloaderForMHR
         private const string WEB_SITE_NAME_MHR = "明慧广播电台";
         private const string WEB_SITE_NAME_MHR_IN_SOH = "明慧广播节目下载（希望之声提供）";
         private readonly List<string> WEB_SITE_NAMES_SUPPORTED = new List<string>() { WEB_SITE_NAME_MHR, WEB_SITE_NAME_MHR_IN_SOH };
-
+        private readonly Dictionary<string, string> IDS_OF_MHR = new Dictionary<string, string>() {
+             {"duanbuoshouting", "短波收听" },
+             {"xiulianyuandi", "修炼园地" },
+             {"xinwenshishi", "新闻时事" },
+             {"yinyuexinshang", "音乐欣赏" },
+        };
         private readonly List<string> EMPTY_STRING_LIST = new List<string>();
 
         private static string APP_PATH = Directory.GetCurrentDirectory();
@@ -623,9 +628,9 @@ namespace DownloaderForMHR
                 if (!File.Exists(SETTINGS_JSON_FILE))
                     return null;
                 var settings = new JsonSerializerSettings();
-                settings.Converters.Add(new StorageConverter());
+                //settings.Converters.Add(new StorageConverter());
                 string jsonText = File.ReadAllText(SETTINGS_JSON_FILE);
-                WebSiteParseList? list = JsonConvert.DeserializeObject<WebSiteParseList>(jsonText, settings);
+                WebSiteParseList? list = JsonConvert.DeserializeObject<WebSiteParseList>(jsonText);//, settings);
                 AdjustIndex(list, true);
                 Log("ParseMainJson OK...");
                 return list;
@@ -644,9 +649,9 @@ namespace DownloaderForMHR
                 if (!File.Exists(DOWNLOAD_HISTORY_JSON_FILE)) return null;
 
                 var settings = new JsonSerializerSettings();
-                settings.Converters.Add(new StorageConverter());
+                //settings.Converters.Add(new StorageConverter());
                 string jsonText = File.ReadAllText(DOWNLOAD_HISTORY_JSON_FILE);
-                DownloadHistory? downloadHistory = JsonConvert.DeserializeObject<DownloadHistory>(jsonText, settings);
+                DownloadHistory? downloadHistory = JsonConvert.DeserializeObject<DownloadHistory>(jsonText);//, settings);
                 Log("ParseDownloadHistoryJson OK...");
                 return downloadHistory;
             }
@@ -695,6 +700,50 @@ namespace DownloaderForMHR
             }
             if (string.IsNullOrEmpty(errInfo)) return;
             MessageBoxError("代理的" + errInfo + "设置错误！请修改。");
+        }
+
+        private async Task<List<SiteSection>> ParseMHRadio(string url)
+        {
+            List<SiteSection> siteSections = new List<SiteSection>();
+
+            if (!ValidateProxy()) return siteSections;
+            try
+            {
+                var doc = await FetchHtmlDocumentAsync(url);
+                if (doc == null) return siteSections;
+                string REG_CATEGORY_ID = @"/showcategory/(\d+)/\d+.html";
+                MatchCollection matchCollection;
+                string categoryUrl = "", categoryId = "", categoryName = "";
+                foreach (string id in IDS_OF_MHR.Keys)
+                {
+                    string sectionName = IDS_OF_MHR[id];
+                    List<SiteCategory> siteCategories = new List<SiteCategory>();
+                    Log($">> {sectionName}");
+                    doc.DocumentNode.SelectSingleNode($"//div[@id='{id}']/div[@class='categorylist']").Descendants("a").AsParallel().ToList().ForEach(ac =>
+                    {
+                        categoryUrl = ac.GetAttributeValue("href", "");
+                        categoryName = ac.InnerText;
+                        matchCollection = Regex.Matches(categoryUrl, REG_CATEGORY_ID);
+                        if (matchCollection.Count > 0)
+                        {
+                            categoryId = matchCollection[0].Groups[1].ToString();
+                        }
+                        if (categoryUrl.Contains("/showcategory/") && !string.IsNullOrEmpty(categoryId))
+                        {
+                            Log($"   {categoryUrl}, {categoryName}, {categoryId}");
+                            siteCategories.Add(new SiteCategory(categoryName, categoryId));
+                        }
+                    });
+                    siteSections.Add(new SiteSection(sectionName, siteCategories));
+                }
+                return siteSections;
+            }
+            catch (Exception e)
+            {
+                Log($"ParseSiteSectionsForMHR: 出错，详情：{e.Message}");
+                MessageBoxError($"更新页序信息出错，详情：{e.Message}");
+                return siteSections;
+            }
         }
 
         private async Task<int> ParsePageValueUpperLimitForMHR(string url)
@@ -894,7 +943,7 @@ namespace DownloaderForMHR
                         downloadPackage.IsSaving = false;
                         downloadPackage.IsSaveComplete = item.downloadResult;
                         downloadPackage.SaveProgress = item.downloadProgress;
-                        downloadPackage.Address = item.downloadUrl;
+                        downloadPackage.Urls = new String[] { item.downloadUrl };
                         long.TryParse(item.fileSize, out long totalFileSize);
                         downloadPackage.TotalFileSize = totalFileSize;
                         downloadPackage.FileName = GetRelativePath(item.fullFileName);
@@ -938,6 +987,66 @@ namespace DownloaderForMHR
         ///5.工具函数
         #region
 
+        private async Task<bool> InitCmbWebSite()
+        {
+            //1.备份 DownloadPackages，在未修改2中数据及其系列数据变动前保存一次
+            //if (cmbSiteSection.Items.Count > 0)//简单判断下是否初始状态，TODO 剔除板块下面栏目为空的，但是不需要考虑这个问题，不会出现
+            SaveMainJson();
+            //2.清零
+            downloadItemList.Clear();
+            cmbSiteSection.Items.Clear();
+            cmbSiteCategory.Items.Clear();
+            cmbPageValue.Items.Clear();
+            tbTaskTarget.Text = "";
+            //oldCmbPageValueIndex = -1;
+
+            //4.初始化 currentWebSite，检查 
+            if (webSiteParseList == null) return false;
+            webSiteParseList.CurrentWebSiteIndex = cmbWebSite.SelectedIndex;
+            currentWebSite = webSiteParseList.WebSites[webSiteParseList.CurrentWebSiteIndex];
+            //4.1.初始化部分按钮或组合
+            dockPanelCmb1.Visibility = Visibility.Visible;
+            /*if (ENABLE_VIDEO_CONVERTOR_BUTTON)
+            {
+                btnMergeTsFiles.Visibility = Visibility.Collapsed;
+            }*/
+            //IsSelectionEnabled.isSelectionEnabled = true;//20240227
+            chkbSelectAll.IsEnabled = true;//20240227
+            btnStartDownload.ToolTip = null;//20240227
+            //4.2
+            webSiteDownloadHistory = downloadHistory?.WebSiteDownloadHistory.Find(item => item.WebSiteName == currentWebSite.WebSiteName);
+            lbPageValue.Content = currentWebSite.WebSiteName == WEB_SITE_NAME_MHR ? "页序" : "年份";
+            if (!CheckParseSelectorsValidity()) return false;
+            //5.
+            if (currentWebSite.SiteSections == null || currentWebSite.SiteSections.Count == 0 ||
+               currentWebSite.SiteSections[0].SiteCategories == null || currentWebSite.SiteSections[0].SiteCategories.Count == 0 ||
+               currentWebSite.SiteSections[0].SiteCategories.Any(item => item.needRefresh()))
+            {
+                if (currentWebSite.WebSiteName == WEB_SITE_NAME_MHR_IN_SOH)
+                {
+                    while (!await RefreshPageValueForMultipleYears(currentWebSite))
+                    {//20250424
+                        if (!MessageBoxErrorWith2Btns($"更新“{currentWebSite.WebSiteName}”的年份信息出错！请检查网络状态。如需再次尝试获取，请选择“确认”按钮。"))
+                            return false;
+                    }
+                }
+                else //WEB_SITE_NAME_MHR
+                {
+                    while (!await RefreshMhRadio(currentWebSite))
+                    {//20250424
+                        if (!MessageBoxErrorWith2Btns($"更新明慧广播信息出错！请检查网络状态。如需再次尝试获取，请选择“确认”按钮。"))
+                            return false;
+                    }
+                }
+
+            }
+            //6.初始化 cmbSiteSection
+            cmbSiteSection.Items.Clear();
+            currentWebSite.SiteSections?.ForEach(item => cmbSiteSection.Items.Add(item.SectionName));
+            cmbSiteSection.SelectedIndex = GetCurrentSiteSectionIndex();
+            return true;
+        }
+
         private int GetCurrentSiteSectionIndex()
         {
             if (cmbSiteSection.Items.Count == 0) return -1;
@@ -969,7 +1078,13 @@ namespace DownloaderForMHR
             if (webSiteDownloadHistory == null ||
                 webSiteDownloadHistory.CurrentSelection == null ||
                 webSiteDownloadHistory.CurrentSelection.PageValue == null)
-                return 0;
+            {
+                if (currentWebSite.WebSiteName == WEB_SITE_NAME_MHR_IN_SOH) //按年
+                    return cmbPageValue.Items.Count - 1;
+                else //按页
+                    return 0;
+            }
+
             int index;
             //20240228 居然json回来时是 int 而非 string
             if (currentWebSite.WebSiteName == WEB_SITE_NAME_MHR_IN_SOH)
@@ -1004,6 +1119,26 @@ namespace DownloaderForMHR
                 return;
             InitSavedDownloadPackages(websitDownloadHistory.DownloadPackages);
             CheckCheckedState();
+        }
+
+        private async Task<bool> RefreshMhRadio(WebSite webSite)
+        {
+            var dialog = ShowProgressDialog($"正在获取明慧广播信息，请稍候...");
+            if (webSite.WebSiteName == WEB_SITE_NAME_MHR)//MHR
+            {
+                var siteSections = await ParseMHRadio(webSite.WebSiteUrl);
+                if (siteSections.Count == 0)
+                {
+                    dialog.CloseMe();
+                    return false;//20231109 获取失败
+                }
+                webSite.SiteSections = siteSections;
+                cmbPageValue.SelectedIndex = GetCurrentPageValueIndex();
+            }
+            //currentTime = DateTime.Now;
+            //Log($"RefreshPageValueForMultiplePage[4] >> {currentTime.Minute}.{currentTime.Second}.{currentTime.Millisecond}...");
+            dialog.CloseMe();
+            return true;
         }
 
         private async Task<bool> RefreshPageValueForMultiplePage(SiteCategory siteCategory)
@@ -1049,15 +1184,20 @@ namespace DownloaderForMHR
             return true;
         }
 
-        private async Task<bool> RefreshPageValueForMultipleYears()
+        private async Task<bool> RefreshPageValueForMultipleYears(WebSite webSite)
         {
-            if (currentWebSite == null) return false;
-            var dialog = ShowProgressDialog($"正在获取“{currentWebSite.WebSiteName}”的年份信息，请稍候...");
-            if (currentWebSite.WebSiteName == WEB_SITE_NAME_MHR_IN_SOH)//MHR in SOH
+            //if (currentWebSite == null) return false;
+            var dialog = ShowProgressDialog($"正在获取“{webSite.WebSiteName}”的年份信息，请稍候...");
+            if (webSite.WebSiteName == WEB_SITE_NAME_MHR_IN_SOH)//MHR in SOH
             {
-                var siteSections = await ParseSiteSectionsForMHRInSOH(currentWebSite.WebSiteUrl);
+                var siteSections = await ParseSiteSectionsForMHRInSOH(webSite.WebSiteUrl);
                 if (siteSections != null && siteSections.Count > 0)
-                    currentWebSite.SiteSections = siteSections;
+                    webSite.SiteSections = siteSections;
+                else
+                {
+                    dialog.CloseMe();
+                    return false;//20250424
+                }
             }
             dialog.CloseMe();
             return true;
@@ -1781,8 +1921,7 @@ namespace DownloaderForMHR
             Log($"DownloadAll: proxy has Changed ={proxyState.IsProxyChanged}");
             if (proxyState.IsProxyChanged)
             {
-                var configuration = GetDownloadConfiguration();
-                list.ForEach(item => item.downloadService?.ResetDownloadConfiguration(configuration));
+                list.ForEach(item => item.downloadService?.ResetProxy(CreateProxy()));
             }
             //2.3
             totalDownloadNum = list.Count;
@@ -1818,13 +1957,12 @@ namespace DownloaderForMHR
             });
         }
 
-        private DownloadConfiguration GetDownloadConfiguration()
+        private DownloadConfiguration CreateDownloadConfiguration()
         {
             string version = Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "1";
             var cookies = new CookieContainer();
             //cookies.Add(new Cookie("download-type", "test") { Domain = "domain.com" });
 
-            Uri? uri = proxyState.UseProxy ? new Uri($"http://{proxyState.ProxyHost}:{proxyState.ProxyPort}") : null;
             RequestConfiguration requestConfiguration = new RequestConfiguration
             {
                 // config and customize request headers
@@ -1834,15 +1972,9 @@ namespace DownloaderForMHR
                 KeepAlive = true,
                 ProtocolVersion = HttpVersion.Version11, // Default value is HTTP 1.1
                 UseDefaultCredentials = false,
-                UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",/*USER_AGENT_DEFAULT,//*/
+                UserAgent = userAgent,//"Mozilla/5.0 (Windows NT 10.0; Win64; x64)",/*USER_AGENT_DEFAULT,//*/
                 //null,//"",//20220628取消 webSiteParseList.UserAgent,//"Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:91.0) Gecko/20100101 Firefox/91.0",//$"DownloaderForMHR/{version}",
-                Proxy = new WebProxy()
-                {
-                    Address = uri,
-                    UseDefaultCredentials = false,
-                    Credentials = System.Net.CredentialCache.DefaultNetworkCredentials,
-                    BypassProxyOnLocal = true
-                },
+                Proxy = CreateProxy(),
             };
             int chunkCount = 1;
             return new DownloadConfiguration
@@ -1860,7 +1992,7 @@ namespace DownloaderForMHR
                 // download parts of file as parallel or not. Default value is false
                 ParallelDownload = true,
                 // number of parallel downloads. The default value is the same as the chunk count
-                ParallelCount = 4,
+                ParallelCount = 4,//?
                 // timeout (millisecond) per stream block reader, default values is 1000
                 Timeout = 1000,
                 // set true if you want to download just a specific range of bytes of a large file
@@ -1877,6 +2009,18 @@ namespace DownloaderForMHR
                 ReserveStorageSpaceBeforeStartingDownload = true,
                 // config and customize request headers
                 RequestConfiguration = requestConfiguration,
+            };
+        }
+
+        private WebProxy CreateProxy()
+        {
+            Uri? uri = proxyState.UseProxy ? new Uri($"http://{proxyState.ProxyHost}:{proxyState.ProxyPort}") : null;
+            return new WebProxy()
+            {
+                Address = uri,
+                UseDefaultCredentials = false,
+                Credentials = System.Net.CredentialCache.DefaultNetworkCredentials,
+                BypassProxyOnLocal = true
             };
         }
 
@@ -1910,7 +2054,7 @@ namespace DownloaderForMHR
 
         private DownloadService CreateDownloadService(int taskId, DownloadPackage? package)
         {
-            DownloadService downloadService = new DownloadService(taskId, GetDownloadConfiguration());
+            DownloadService downloadService = new DownloadService(taskId, CreateDownloadConfiguration());
             downloadService.ChunkDownloadProgressChanged += OnChunkDownloadProgressChanged;
             downloadService.DownloadProgressChanged += OnDownloadProgressChanged;
             downloadService.DownloadFileCompleted += OnDownloadFileCompleted;
@@ -1935,7 +2079,7 @@ namespace DownloaderForMHR
             Log($"OnDownloadStarted [{e.TaskId} - {e.FileName}] 开始下载...");
         }
 
-        private async void OnDownloadFileCompleted(object? sender, DownloadAsyncCompletedEventArgs e)
+        private async void OnDownloadFileCompleted(object? sender, AsyncDownloadCompletedEventArgs e)
         {
             Log($"OnDownloadFileCompleted: TaskId = {e.TaskId}");
             if (webSiteParseList == null)
@@ -2166,7 +2310,7 @@ namespace DownloaderForMHR
                     fileName = Path.GetFileName(package.FileName);
                     directoryName = (Path.GetDirectoryName(package.FileName) ?? "").TrimEnd('\\');
                     folderPath = DOWNLOAD_PATH + (string.IsNullOrEmpty(directoryName) ? "" : $@"{directoryName}");
-                    DownloadItem item = new DownloadItem(index, fileName, "", package.Address, true, folderPath: folderPath, downloadResult: package.IsSaveComplete);
+                    DownloadItem item = new DownloadItem(index, fileName, "", package.Urls[0], true, folderPath: folderPath, downloadResult: package.IsSaveComplete);
                     package.FileName = folderPath + "\\" + fileName;//20240228 GJSJ不应该添加，别的要添加，因为downloadPackage 继续下载需要
                     item.downloadService = CreateDownloadService(index, package);
 
@@ -2221,7 +2365,7 @@ namespace DownloaderForMHR
                     break;
                 case AppTask.TASK_MERGE_TS_FILES:
                     abMergeTSFiles.Set(startTask);
-                    taskInfo = startTask ? "正在合并TS文件" : (noErrInfo ? "完成合并TS文件任务！" : "合并TS文件出错");
+                    taskInfo = startTask ? "正在合并文件" : (noErrInfo ? "完成合并文件任务！" : "合并TS文件出错");
                     if (!noErrInfo) errInfo = $"合并TS文件出错！详情：{errDetail}";
                     break;
             }
@@ -2308,6 +2452,11 @@ namespace DownloaderForMHR
             return MessageBox.Show(this, message, "错误", MessageBoxButton.OK, MessageBoxImage.Error) == MessageBoxResult.OK;
         }
 
+        private bool MessageBoxErrorWith2Btns(string message)
+        {
+            return MessageBox.Show(this, message, "错误", MessageBoxButton.OKCancel, MessageBoxImage.Error) == MessageBoxResult.OK;
+        }
+
         private bool MessageBoxQuestion(string message)
         {
             return MessageBox.Show(this, message, "询问", MessageBoxButton.OKCancel, MessageBoxImage.Question) == MessageBoxResult.OK;
@@ -2379,48 +2528,7 @@ namespace DownloaderForMHR
 
         private async void cmbWebSite_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            //1.备份 DownloadPackages，在未修改2中数据及其系列数据变动前保存一次
-            //if (cmbSiteSection.Items.Count > 0)//简单判断下是否初始状态，TODO 剔除板块下面栏目为空的，但是不需要考虑这个问题，不会出现
-            SaveMainJson();
-            //2.清零
-            downloadItemList.Clear();
-            cmbSiteSection.Items.Clear();
-            cmbSiteCategory.Items.Clear();
-            cmbPageValue.Items.Clear();
-            tbTaskTarget.Text = "";
-            //oldCmbPageValueIndex = -1;
-
-            //4.初始化 currentWebSite，检查 
-            if (webSiteParseList == null) return;
-            webSiteParseList.CurrentWebSiteIndex = cmbWebSite.SelectedIndex;
-            currentWebSite = webSiteParseList.WebSites[webSiteParseList.CurrentWebSiteIndex];
-            //4.1.初始化部分按钮或组合
-            dockPanelCmb1.Visibility = Visibility.Visible;
-            /*if (ENABLE_VIDEO_CONVERTOR_BUTTON)
-            {
-                btnMergeTsFiles.Visibility = Visibility.Collapsed;
-            }*/
-            //IsSelectionEnabled.isSelectionEnabled = true;//20240227
-            chkbSelectAll.IsEnabled = true;//20240227
-            btnStartDownload.ToolTip = null;//20240227
-            //4.2
-            webSiteDownloadHistory = downloadHistory?.WebSiteDownloadHistory.Find(item => item.WebSiteName == currentWebSite.WebSiteName);
-            lbPageValue.Content = currentWebSite.WebSiteName == WEB_SITE_NAME_MHR ? "页序" : "年份";
-            if (!CheckParseSelectorsValidity()) return;
-            //5.
-            if (currentWebSite.WebSiteName == WEB_SITE_NAME_MHR_IN_SOH)
-            {
-                if (currentWebSite.SiteSections == null || currentWebSite.SiteSections.Count == 0 ||
-                   currentWebSite.SiteSections[0].SiteCategories == null || currentWebSite.SiteSections[0].SiteCategories.Count == 0 ||
-                   currentWebSite.SiteSections[0].SiteCategories.Any(item => item.needRefresh()))
-                {
-                    await RefreshPageValueForMultipleYears();
-                }
-            }
-            //6.初始化 cmbSiteSection
-            cmbSiteSection.Items.Clear();
-            currentWebSite.SiteSections?.ForEach(item => cmbSiteSection.Items.Add(item.SectionName));
-            cmbSiteSection.SelectedIndex = GetCurrentSiteSectionIndex();
+            await InitCmbWebSite();
         }
 
         private void cmbSiteSection_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -2466,11 +2574,10 @@ namespace DownloaderForMHR
                 return;
             }
             if (currentWebSite.WebSiteName != WEB_SITE_NAME_MHR) return;
-            bool isSucc = await RefreshPageValueForMultiplePage(siteCategory);
-            if (!isSucc)
+            while (!await RefreshPageValueForMultiplePage(siteCategory))
             {
-                MessageBoxError($"{siteCategory.CategoryName}的页序数据错误，请检查！");
-                return;
+                if (!MessageBoxErrorWith2Btns($"更新“{siteCategory.CategoryName}”的页序信息出错！请检查网络状态。如需再次尝试获取，请选择“确认”按钮。"))
+                    return;
             }
         }
 
@@ -2574,6 +2681,20 @@ namespace DownloaderForMHR
             bool isChecked = ckbUseProxy.IsChecked ?? false;
             bdProxySelection.BorderBrush = isChecked ? null : Brushes.Red;
         }
+
+        private async void myWindows_KeyDown(object sender, KeyEventArgs e)
+        {
+            Log($"{e.Key} pressed!");
+            if(e.Key != Key.F5) return;
+
+            if (currentWebSite == null) return;
+            if (currentWebSite.SiteSections == null || currentWebSite.SiteSections.Count == 0 ||
+               currentWebSite.SiteSections[0].SiteCategories == null || currentWebSite.SiteSections[0].SiteCategories.Count == 0 ||
+               currentWebSite.SiteSections[0].SiteCategories.Any(item => item.needRefresh()))
+            {
+                await InitCmbWebSite();
+            }
+        }
         #endregion
 
         /////////////////////////////////////////////////////
@@ -2656,8 +2777,8 @@ namespace DownloaderForMHR
         private void btnTest_Click(object sender, RoutedEventArgs e)
         {
         }
-        #endregion
 
+        #endregion
 
     }
 }

@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:DownloaderForMHR"
         mc:Ignorable="d"
-        Title="明慧广播批量下载器" Height="600" Width="1198" MinWidth="1198" MinHeight="600" ResizeMode="CanResize" Closed="Window_Closed" Loaded="Window_Loaded" WindowStartupLocation="CenterScreen" SizeChanged="Window_SizeChanged">
+        Title="明慧广播批量下载器" Height="600" Width="1198" MinWidth="1198" MinHeight="600" ResizeMode="CanResize" Closed="Window_Closed" Loaded="Window_Loaded" WindowStartupLocation="CenterScreen" SizeChanged="Window_SizeChanged" KeyDown="myWindows_KeyDown">
     <Window.Resources>
         <ToolTip x:Key="InforTip">
             <Grid>
@@ -55,7 +55,7 @@
         <Grid Grid.Column="6" x:Name="col7"/>
         <DockPanel Grid.ColumnSpan="7">
             <StackPanel Orientation="Horizontal">
-                <Label Content="网站" Margin="0,0,0,0" VerticalAlignment="Center"/>
+                <Label x:Name="LabelWebSite" Content="网站" Margin="0,0,0,0" VerticalAlignment="Center"/>
                 <ComboBox x:Name="cmbWebSite" Width="220" Height="22" SelectionChanged="cmbWebSite_SelectionChanged"/>
             </StackPanel>
             <DockPanel x:Name="dockPanelCmb1" Visibility="Visible">
