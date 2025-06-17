@@ -38,7 +38,14 @@ https://download.visualstudio.microsoft.com/download/pr/f18288f6-1732-415b-b577-
 
 ## 四、使用簡要說明
 
-只需簡單四步即可批量下載明慧廣播的MP3檔：
+### 【提示】
+如果系統預先沒有安裝微軟net Core8運行時，運行程序后，系統會出現下載提示，
+
+![](./images/TipFor-Net.desktop-DownloaderForMHR.png)
+
+請點擊“Download it now”下載並安裝。
+
+### 本程序操作簡單，只需四步即可批量下載明慧廣播的MP3檔：
 
 ### （一）通過明慧廣播官網下載
 
