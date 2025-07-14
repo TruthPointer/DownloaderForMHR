@@ -43,7 +43,7 @@ https://download.visualstudio.microsoft.com/download/pr/f18288f6-1732-415b-b577-
 
 ![](./images/TipFor-Net.desktop-DownloaderForMHR.png)
 
-請點擊“Download it now”下載並安裝。
+請點擊“Download it now”下載並安裝。此種情況下下載安裝的是微軟最新版的net Core8運行時。
 
 ### 本程序操作簡單，只需四步即可批量下載明慧廣播的MP3檔：
 
