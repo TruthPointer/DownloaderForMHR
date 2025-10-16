@@ -935,6 +935,7 @@ namespace DownloaderForMHR
                 {
                     if (item.downloadService != null && item.downloadService.Package != null)
                     {
+                        item.downloadService.Package.FileName = GetRelativePath(item.fullFileName);//20251014[1] 获取保存的相对路径
                         return item.downloadService.Package;
                     }
                     else
@@ -1335,10 +1336,11 @@ namespace DownloaderForMHR
             if (pos > 0)
                 title = title.Substring(0, pos);
             //20220609 剔除里面看不见的不合规则的字符（实际却是不可见！！！）
-            // Regex.Replace(title, @"[\\/:*?<>|\r\n]", "·"); 但是\r\n单独处理
-            title = Regex.Replace(title, @"[\\/:*?<>|]", "·");//
-            title = title.Replace("｜", " ").Replace("\n", " ").Replace("\r", " ").Replace("\"", " ").Replace("\r\n", " ").Trim();
-            return Regex.Replace(title, $"[ ]+", " ");//20240304 处理连续多个无意义空格的问题
+            //20251014-3
+            title = Regex.Replace(title, @"[\\/:*?<>|]", " ");//20250815 多个.导致文件名以至于下载出现错误
+            title = title.Replace("｜", " ").Replace("\n", " ").Replace("\r", " ").Replace("\"", " ").Replace("\r\n", " ");
+            //20240304 处理连续多个无意义空格的问题；20250815 多个.导致文件名以至于下载出现错误
+            return Regex.Replace(title, @"[. ]{2,}", " ").Trim();
         }
 
         private string ComputeMD5(string source)
@@ -1358,9 +1360,14 @@ namespace DownloaderForMHR
             }
         }
 
+        /**
+         * [20251014]2 修改 
+         **/
         private string GetRelativePath(string fullFileName)
         {
-            return fullFileName.Replace(DOWNLOAD_PATH, "");
+            string r = fullFileName.Replace(DOWNLOAD_PATH, "");            
+            if (r.StartsWith('\\')) r = r.Substring(1);
+            return r;
         }
         #endregion
 
@@ -2782,3 +2789,4 @@ namespace DownloaderForMHR
 
     }
 }
+
