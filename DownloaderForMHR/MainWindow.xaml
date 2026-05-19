@@ -164,6 +164,12 @@
                         <TextBlock Text="停止下载" VerticalAlignment="Center" />
                     </WrapPanel>
                 </Button>
+                <Button x:Name="btnOpenDownloadPath" HorizontalAlignment="Left" Margin="10,0,0,0" VerticalAlignment="Center" Width="112" Height="24" Click="btnOpenDownloadPath_Click" Panel.ZIndex="8">
+                    <WrapPanel >
+                        <Image Width="16" Height="16" Margin="0,0,8,0" Source="/images/open_file.png"/>
+                        <TextBlock Text="打开下载目录" VerticalAlignment="Center" />
+                    </WrapPanel>
+                </Button>
                 <Button x:Name="btnMergeTsFiles" HorizontalAlignment="Left" Margin="10,0,0,0" VerticalAlignment="Center" Width="112" Height="24" Panel.ZIndex="9" Click="btnMergeTsFiles_Click" Visibility="Collapsed">
                     <WrapPanel Margin="0,0,8,0" >
                         <Image Source="/images/merge_file.png" Width="16" Height="16" Margin="0,0,8,0"/>

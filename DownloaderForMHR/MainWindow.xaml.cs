@@ -1364,7 +1364,7 @@ namespace DownloaderForMHR
          * [20251014]2 修改 
          **/
         private string GetRelativePath(string fullFileName)
-        {
+        {          
             string r = fullFileName.Replace(DOWNLOAD_PATH, "");            
             if (r.StartsWith('\\')) r = r.Substring(1);
             return r;
@@ -2752,6 +2752,11 @@ namespace DownloaderForMHR
             });
         }
 
+        private void btnOpenDownloadPath_Click(object sender, RoutedEventArgs e)
+        {
+            Process.Start("Explorer.exe", DOWNLOAD_PATH);
+        }
+
         private void btnMergeTsFiles_Click(object sender, RoutedEventArgs e)
         {
             //1.检查是否下载列表是否为空
@@ -2789,4 +2794,3 @@ namespace DownloaderForMHR
 
     }
 }
-
