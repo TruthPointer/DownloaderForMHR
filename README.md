@@ -28,7 +28,10 @@
 https://download.visualstudio.microsoft.com/download/pr/f18288f6-1732-415b-b577-7fb46510479a/a98239f751a7aed31bc4aa12f348a9bf/windowsdesktop-runtime-8.0.1-win-x64.exe
 
 2、如果使用自由門限製版下載，需按照第3部分【添加自由門白名單】，把如下內容添加到其代理的白名單裡：
-- .hungfa.net
+
+|序號|要添加的内容|
+| :---   | :---        |
+|1|.hungfa.net|
 
 3、【添加自由門白名單】的方法
 （1）在自由門介面點擊“設置”(圖示為齒輪形狀的)；
@@ -40,10 +43,9 @@ https://download.visualstudio.microsoft.com/download/pr/f18288f6-1732-415b-b577-
 
 ### 【提示】
 如果系統預先沒有安裝微軟net Core8運行時，運行程序后，系統會出現下載提示，
-
 ![](./images/TipFor-Net.desktop-DownloaderForMHR.png)
-
-請點擊“Download it now”下載並安裝。此種情況下下載安裝的是微軟最新版的net Core8運行時。
+ 
+此時，請點擊“Download it now”下載並安裝。此種情況下下載安裝的是微軟最新版的net Core8運行時。
 
 ### 本程序操作簡單，只需四步即可批量下載明慧廣播的MP3檔：
 
@@ -67,6 +69,8 @@ https://download.visualstudio.microsoft.com/download/pr/f18288f6-1732-415b-b577-
 
 所有下載檔案，直接保存在程式目前的目錄同一位置下的“下載”目錄裡。
 
+可以直接點擊“打開下載目錄”按鈕，來瀏覽下載的文件。
+
 ## 五、所使用或引用的專案
 
 1、Downloader
@@ -76,13 +80,14 @@ https://github.com/bezzad/Downloader
 
 ## 六、更新
 
+【20260518】
+
+1、添加“打開下載目錄”按鈕，以方便使用。
+
 【20250425】
 1. 更新 bezzad Downloader 代碼到最新的 v3.3.4；
 2. 添加F5鍵更新功能。主要用於網絡不好或代理失效等情況下，導致的網站板塊、欄目、頁序或年份信息不全的問題，這時在檢查網絡正常和代理正確的情況下，可以按下F5來强制更新這些信息；
 3. 各方面細節的完善。
-   
-【20251015】
-1. 修復下載歷史文件名保存錯誤導致的下載失敗問題。
 
 ## 七、鄭重聲明
 
